@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Androide 6</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+
+    <div id="start-overlay">
+        <button id="start-btn">REPRODUCIR MENSAJE</button>
+    </div>
+
+    <div id="subtitle-box"></div>
+
+    <canvas id="vectoscope" width="512" height="512" style="display: none;"></canvas>
+
+    <audio id="dialogue" src="./assets/audio/Nicola_Vanzetti.mp3" preload="auto"></audio>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "@dgreenheck/ez-tree": "https://esm.sh/@dgreenheck/ez-tree"
+            }
+        }
+    </script>
+    
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>
