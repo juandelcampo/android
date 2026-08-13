@@ -1,23 +1,26 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { TextureGenerator } from './TextureGenerator.js';
 import { getTerrainHeight } from './Terrain.js';
 
 export class Forest {
     constructor() {
         this.group = new THREE.Group();
+        this.tileGroup = new THREE.Group();
+        this.tiles = [];
         this.colliders = [];
-        this.narrativeProps = {};
         this.loader = new GLTFLoader();
-        this.buildForest();
+
+        this.tileSize = 300;
+        this.lastTileX = NaN;
+        this.lastTileZ = NaN;
+
+        this.buildForestTile();
     }
 
-    async buildForest() {
-        const groundTex = TextureGenerator.createGroundTexture();
-        const groundMat = new THREE.MeshLambertMaterial({ map: groundTex });
-
-        // 1. Suelo Gigante
-        const groundGeo = new THREE.PlaneGeometry(800, 800, 120, 120);
+    async buildForestTile() {
+        // 1. Suelo Base
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0x3d3828 });
+        const groundGeo = new THREE.PlaneGeometry(this.tileSize, this.tileSize, 80, 80);
         const pos = groundGeo.attributes.position;
         for (let i = 0; i < pos.count; i++) {
             const vx = pos.getX(i);
@@ -28,156 +31,269 @@ export class Forest {
 
         const ground = new THREE.Mesh(groundGeo, groundMat);
         ground.rotation.x = -Math.PI / 2;
-        this.group.add(ground);
+        ground.userData.isGround = true;
+        this.tileGroup.add(ground);
 
-        // 2. Organización de assets por categoría
-        const assetCategories = {
-            trees: [
-                'tree_oak.glb', 'tree_oak_dark.glb', 'tree_oak_fall.glb',
-                'tree_tall.glb', 'tree_tall_dark.glb', 'tree_tall_fall.glb',
-                'tree_thin.glb', 'tree_thin_dark.glb', 'tree_thin_fall.glb',
-                'tree_detailed.glb', 'tree_detailed_dark.glb', 'tree_detailed_fall.glb',
-                'tree_fat.glb', 'tree_fat_darkh.glb', 'tree_fat_fall.glb',
-                'tree_pineTallA_detailed.glb', 'tree_pineTallB_detailed.glb',
-                'tree_pineTallC_detailed.glb', 'tree_pineTallD_detailed.glb',
-                'tree_pineDefaultA.glb', 'tree_pineDefaultB.glb',
-                'tree_pineRoundA.glb', 'tree_pineRoundB.glb', 'tree_pineRoundC.glb',
-                'tree_pineSmallA.glb', 'tree_pineSmallB.glb',
-                'tree_cone.glb', 'tree_cone_dark.glb', 'tree_cone_fall.glb',
-                'tree_default.glb', 'tree_default_dark.glb', 'tree_default_fall.glb',
-                'tree_blocks.glb', 'tree_blocks_dark.glb', 'tree_blocks_fall.glb'
-            ],
-            cacti: ['cactus_tall.glb', 'cactus_short.glb'],
-            bushes: [
-                'plant_bush.glb', 'plant_bushLarge.glb', 'plant_bushDetailed.glb',
-                'plant_bushSmall.glb', 'plant_bushTriangle.glb', 'plant_bushLargeTriangle.glb',
-                'plant_flatTall.glb', 'plant_flatShort.glb'
-            ],
-            rocksAndStumps: [
-                'stump_old.glb', 'stump_oldTall.glb', 'stump_round.glb',
-                'stump_roundDetailed.glb', 'stump_square.glb', 'stump_squareDetailed.glb',
-                'stump_squareDetailedWide.glb', 'log.glb', 'log_large.glb',
-                'log_stack.glb', 'log_stackLarge.glb',
-                'rock_largeA.glb', 'rock_largeB.glb', 'rock_largeC.glb', 'rock_largeD.glb',
-                'rock_tallA.glb', 'rock_tallB.glb', 'rock_tallC.glb', 'rock_tallD.glb',
-                'rock_tallE.glb', 'rock_tallF.glb', 'rock_tallG.glb', 'rock_tallH.glb', 'rock_tallI.glb', 'rock_tallJ.glb',
-                'rock_smallA.glb', 'rock_smallB.glb', 'rock_smallC.glb', 'rock_smallD.glb', 'rock_smallE.glb', 'rock_smallF.glb',
-                'rock_smallFlatA.glb', 'rock_smallFlatB.glb', 'rock_smallFlatC.glb',
-                'rock_smallG.glb', 'rock_smallH.glb', 'rock_smallI.glb', 'rock_smallTopA.glb', 'rock_smallTopB.glb',
-                'stone_largeA.glb', 'stone_largeB.glb', 'stone_largeC.glb', 'stone_largeD.glb', 'stone_largeE.glb', 'stone_largeF.glb',
-                'stone_tallA.glb', 'stone_tallB.glb', 'stone_tallC.glb', 'stone_tallD.glb', 'stone_tallE.glb',
-                'stone_tallF.glb', 'stone_tallG.glb', 'stone_tallH.glb', 'stone_tallI.glb', 'stone_tallJ.glb',
-                'stone_smallA.glb', 'stone_smallB.glb', 'stone_smallC.glb', 'stone_smallD.glb', 'stone_smallE.glb', 'stone_smallF.glb',
-                'stone_smallFlatA.glb', 'stone_smallFlatB.glb', 'stone_smallFlatC.glb',
-                'stone_smallG.glb', 'stone_smallH.glb', 'stone_smallI.glb', 'stone_smallTopA.glb', 'stone_smallTopB.glb'
-            ],
-            flora: [
-                'flower_yellowA.glb', 'flower_yellowB.glb', 'flower_yellowC.glb',
-                'flower_redA.glb', 'flower_redB.glb', 'flower_redC.glb',
-                'flower_purpleA.glb', 'flower_purpleB.glb', 'flower_purpleC.glb',
-                'lily_large.glb', 'lily_small.glb',
-                'mushroom_red.glb', 'mushroom_redGroup.glb', 'mushroom_redTall.glb',
-                'mushroom_tan.glb', 'mushroom_tanGroup.glb', 'mushroom_tanTall.glb'
-            ],
-            grass: [
-                'grass.glb', 'grass_large.glb', 'grass_leafs.glb', 'grass_leafsLarge.glb',
-                'ground_grass.glb'
-            ]
-        };
+        // Textura Estepa
+        this.loader.load('./assets/models/dry_steppe_autumn_seamless_map_second.glb', (gltf) => {
+            gltf.scene.traverse((child) => {
+                if (child.isMesh && child.material) {
+                    let tex = child.material.map || (Array.isArray(child.material) && child.material[0].map);
+                    if (tex) {
+                        const clonedTex = tex.clone();
+                        clonedTex.wrapS = THREE.RepeatWrapping;
+                        clonedTex.wrapT = THREE.RepeatWrapping;
+                        clonedTex.repeat.set(35, 35);
+                        clonedTex.colorSpace = THREE.SRGBColorSpace;
+                        clonedTex.needsUpdate = true;
 
-        // 3. Cargador en paralelo
-        const loadCategory = async (files) => {
-            const promises = files.map(file => new Promise((resolve) => {
-                this.loader.load(
-                    `./assets/models/${file}`,
-                    (gltf) => resolve(gltf.scene),
-                    undefined,
-                    () => resolve(null)
-                );
-            }));
-            return (await Promise.all(promises)).filter(m => m !== null);
-        };
+                        const groundMaterial = new THREE.MeshLambertMaterial({ map: clonedTex });
+                        ground.material = groundMaterial;
 
-        const loadedTrees = await loadCategory(assetCategories.trees);
-        const loadedCacti = await loadCategory(assetCategories.cacti);
-        const loadedBushes = await loadCategory(assetCategories.bushes);
-        const loadedProps = await loadCategory(assetCategories.rocksAndStumps);
-        const loadedFlora = await loadCategory(assetCategories.flora);
-        const loadedGrass = await loadCategory(assetCategories.grass);
+                        this.tiles.forEach(tile => {
+                            tile.traverse(c => {
+                                if (c.isMesh && c.userData.isGround) {
+                                    c.material = groundMaterial;
+                                }
+                            });
+                        });
+                    }
+                }
+            });
+        });
 
-        // 4. INSTANCIACIÓN MASIVA GPU (Renderizado Extremo)
-        this.spawnInstanced(loadedTrees, 5000, 10.0, 25.0, 14, 0.12); // Árboles Colosales
-        this.spawnInstanced(loadedCacti, 1000, 3.0, 5.5, 5, 0.25);    // Cactus
-        this.spawnInstanced(loadedBushes, 5000, 2.0, 4.0, 4, 0);      // Arbustos (sin colisión)
-        this.spawnInstanced(loadedProps, 10000, 1.8, 4.0, 0, 0.3);    // Rocas y Troncos
-        this.spawnInstanced(loadedFlora, 15000, 1.2, 2.5, 0, 0);      // Flores y Hongos
-        this.spawnInstanced(loadedGrass, 150000, 2.0, 4.5, 0, 0);     // Manto de Pasto (¡150.000!)
+        // 2. Cargar Árboles y Rocas
+        this.loader.load('./assets/models/low_poly_forest_tree_pack.glb', (gltf) => {
+            gltf.scene.updateMatrixWorld(true);
 
-        if (loadedTrees.length === 0) {
-            this.buildNativeProceduralTrees();
-        }
+            const trees = [], rocks = [], trunks = [], branches = [];
 
-        this.setupNarrativeProps();
+            gltf.scene.traverse((child) => {
+                if (child.isMesh) {
+                    const bakedGeo = child.geometry.clone();
+                    bakedGeo.applyMatrix4(child.matrixWorld);
+
+                    bakedGeo.computeBoundingBox();
+                    if (bakedGeo.boundingBox) {
+                        const bbox = bakedGeo.boundingBox;
+                        bakedGeo.translate(-(bbox.min.x + bbox.max.x) / 2, -bbox.min.y, -(bbox.min.z + bbox.max.z) / 2);
+                    }
+
+                    const mat = child.material.clone();
+                    mat.alphaTest = 0.4;
+                    mat.depthWrite = true;
+                    mat.side = THREE.DoubleSide;
+
+                    const prepared = { geometry: bakedGeo, material: mat };
+                    const name = (child.name || '').toLowerCase();
+
+                    if (name.includes('rock')) rocks.push(prepared);
+                    else if (name.includes('trunk')) trunks.push(prepared);
+                    else if (name.includes('branch')) branches.push(prepared);
+                    else trees.push(prepared);
+                }
+            });
+
+            if (trees.length > 0) this.spawnInstancedMeshes(trees, 1200, 0.8, 1.8, 12, 0.25, 0.4);
+            if (rocks.length > 0) this.spawnInstancedMeshes(rocks, 800, 0.5, 2.0, 8, 0.25, 0.2);
+            if (trunks.length > 0) this.spawnInstancedMeshes(trunks, 200, 0.7, 1.4, 8, 0.2, 0.3);
+            if (branches.length > 0) this.spawnInstancedMeshes(branches, 300, 0.6, 1.2, 8, 0.0, 0.2);
+
+            this.initTileGrid();
+        });
+
+        // 3. Esculturas de Ajedrez, Auto Quemado y Estatua
+        this.scatterChessSculptures();
+        this.spawnSingleBurnedCar();
+        this.spawnSingleStatue();
     }
 
-    // MOTOR DE INSTANCIACIÓN (Convierte cualquier modelo GLTF a miles de instancias en un solo draw-call)
-    spawnInstanced(models, totalCount, scaleMin, scaleMax, skipRadius, colliderRatio) {
-        if (!models || models.length === 0) return;
+    initTileGrid() {
+        if (this.tiles.length > 0) return;
 
-        const countPerModel = Math.floor(totalCount / models.length);
-        const dummy = new THREE.Object3D();
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dz = -1; dz <= 1; dz++) {
+                const clonedTile = this.tileGroup.clone(true);
+                clonedTile.position.set(dx * this.tileSize, 0, dz * this.tileSize);
+                this.group.add(clonedTile);
+                this.tiles.push(clonedTile);
+            }
+        }
+    }
 
-        models.forEach(model => {
-            // Actualizar matrices internas del modelo descargado
-            model.updateMatrixWorld(true);
-            const meshData = [];
+    addToMap(object) {
+        this.tileGroup.add(object);
+        if (this.tiles.length > 0) {
+            this.tiles.forEach(tile => {
+                tile.add(object.clone(true));
+            });
+        }
+    }
 
-            model.traverse(child => {
+    normalizeScale(object, targetMeters) {
+        object.updateMatrixWorld(true);
+        const bbox = new THREE.Box3().setFromObject(object);
+        const size = new THREE.Vector3();
+        bbox.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (maxDim > 0) {
+            const scaleFactor = targetMeters / maxDim;
+            object.scale.multiplyScalar(scaleFactor);
+        }
+    }
+
+    setChessboardPatch(enable, centerPos) {}
+
+    scatterChessSculptures() {
+        this.loader.load('./assets/models/props/replica_lewis_chess_pieces_on_chessboard.glb', (gltf) => {
+            const pieceCategories = {};
+
+            gltf.scene.traverse((child) => {
                 if (child.isMesh) {
-                    meshData.push({
-                        geometry: child.geometry,
-                        material: child.material,
-                        localMatrix: child.matrixWorld.clone()
-                    });
+                    const name = (child.name || '').toLowerCase();
+                    const matName = (child.material?.name || '').toLowerCase();
+
+                    if (!name.includes('board') && !matName.includes('board')) {
+                        const baseName = name.replace(/\.\d+$/, '');
+                        if (!pieceCategories[baseName]) {
+                            pieceCategories[baseName] = child;
+                        }
+                    }
                 }
             });
 
-            // Crear el InstancedMesh por cada parte geométrica
-            const instancedMeshes = meshData.map(data => {
-                const im = new THREE.InstancedMesh(data.geometry, data.material, countPerModel);
-                // Solo activamos sombras para objetos grandes que tienen colisionador
-                if (colliderRatio > 0) {
-                    im.castShadow = true;
-                    im.receiveShadow = true;
-                }
-                this.group.add(im);
-                return { instance: im, localMatrix: data.localMatrix };
-            });
+            const uniquePieces = Object.values(pieceCategories);
+            if (uniquePieces.length === 0) return;
 
-            // Posicionar las miles de copias
-            let spawned = 0;
-            while (spawned < countPerModel) {
-                const x = (Math.random() - 0.5) * 780;
-                const z = (Math.random() - 0.5) * 780;
+            const sculpturesGroup = new THREE.Group();
 
-                // Evitar el área de aparición inicial
-                if (skipRadius > 0 && Math.sqrt(x * x + z * z) < skipRadius) {
-                    continue;
-                }
+            for (let i = 0; i < 30; i++) {
+                const randomMesh = uniquePieces[Math.floor(Math.random() * uniquePieces.length)];
+                const pieceClone = randomMesh.clone(true);
+
+                const sculptureHeight = 4.0 + Math.random() * 2.5;
+                this.normalizeScale(pieceClone, sculptureHeight);
+
+                const x = (Math.random() - 0.5) * (this.tileSize - 30);
+                const z = (Math.random() - 0.5) * (this.tileSize - 30);
+
+                if (Math.sqrt(x * x + z * z) < 15) continue;
 
                 const gy = getTerrainHeight(x, z);
+                pieceClone.updateMatrixWorld(true);
+                const bbox = new THREE.Box3().setFromObject(pieceClone);
 
-                dummy.position.set(x, gy, z);
-                dummy.rotation.set(0, Math.random() * Math.PI * 2, 0);
+                pieceClone.position.set(x, gy - bbox.min.y, z);
+                pieceClone.rotation.y = Math.random() * Math.PI * 2;
+
+                sculpturesGroup.add(pieceClone);
+                this.colliders.push({ x: x, z: z, radius: 2.2 });
+            }
+
+            this.addToMap(sculpturesGroup);
+        });
+    }
+
+    spawnSingleBurnedCar() {
+        this.loader.load('./assets/models/props/free_burned_police_cars.glb', (gltf) => {
+            const car = gltf.scene;
+            this.normalizeScale(car, 18.0);
+
+            const x = 20.0;
+            const z = -15.0;
+            const gy = getTerrainHeight(x, z);
+
+            car.updateMatrixWorld(true);
+            const bbox = new THREE.Box3().setFromObject(car);
+
+            car.position.set(x, gy - bbox.min.y, z);
+            car.rotation.set(0, -0.6, 0);
+
+            this.group.add(car);
+            this.colliders.push({ x: x, z: z, radius: 8.0 });
+        });
+    }
+
+    // ESTATUA CON GIRO DE 180 GRADOS RESPECTO A ANTES
+    spawnSingleStatue() {
+        this.loader.load('./assets/models/st_olaf_the_patron_saint_of_norway.glb', (gltf) => {
+            const statue = gltf.scene;
+            this.normalizeScale(statue, 9.0);
+
+            const x = -12.0;
+            const z = -18.0;
+            const gy = getTerrainHeight(x, z);
+
+            statue.updateMatrixWorld(true);
+            const bbox = new THREE.Box3().setFromObject(statue);
+
+            statue.position.set(x, gy - bbox.min.y, z);
+            
+            // Giro de 180° aplicado (Math.PI/4 + Math.PI)
+            statue.rotation.y = (5 * Math.PI) / 4;
+
+            statue.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            this.group.add(statue);
+            this.colliders.push({ x: x, z: z, radius: 3.5 });
+        });
+    }
+
+    update(delta, playerPos) {
+        if (this.tiles.length === 0 || !playerPos) return;
+
+        const currentTileX = Math.floor((playerPos.x + this.tileSize / 2) / this.tileSize);
+        const currentTileZ = Math.floor((playerPos.z + this.tileSize / 2) / this.tileSize);
+
+        if (currentTileX !== this.lastTileX || currentTileZ !== this.lastTileZ) {
+            this.lastTileX = currentTileX;
+            this.lastTileZ = currentTileZ;
+
+            let index = 0;
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dz = -1; dz <= 1; dz++) {
+                    const tile = this.tiles[index++];
+                    tile.position.set(
+                        (currentTileX + dx) * this.tileSize,
+                        0,
+                        (currentTileZ + dz) * this.tileSize
+                    );
+                }
+            }
+        }
+    }
+
+    spawnInstancedMeshes(itemList, totalCount, scaleMin, scaleMax, skipRadius, colliderRatio, sinkOffset = 0.0) {
+        const countPerMesh = Math.floor(totalCount / itemList.length);
+        const dummy = new THREE.Object3D();
+
+        itemList.forEach((item) => {
+            const instancedMesh = new THREE.InstancedMesh(item.geometry, item.material, countPerMesh);
+            let spawned = 0;
+
+            const origMatrices = [];
+
+            while (spawned < countPerMesh) {
+                const x = (Math.random() - 0.5) * (this.tileSize - 6);
+                const z = (Math.random() - 0.5) * (this.tileSize - 6);
+
+                if (skipRadius > 0 && Math.sqrt(x * x + z * z) < skipRadius) continue;
+
+                const gy = getTerrainHeight(x, z);
                 const scale = scaleMin + Math.random() * (scaleMax - scaleMin);
+
+                dummy.position.set(x, gy - (sinkOffset * scale), z);
+                dummy.rotation.set(0, Math.random() * Math.PI * 2, 0);
                 dummy.scale.set(scale, scale, scale);
                 dummy.updateMatrix();
 
-                // Aplicar a cada geometría del modelo
-                instancedMeshes.forEach(({ instance, localMatrix }) => {
-                    const finalMatrix = new THREE.Matrix4().multiplyMatrices(dummy.matrix, localMatrix);
-                    instance.setMatrixAt(spawned, finalMatrix);
-                });
+                instancedMesh.setMatrixAt(spawned, dummy.matrix);
+                origMatrices.push(dummy.matrix.clone());
 
                 if (colliderRatio > 0) {
                     this.colliders.push({ x: x, z: z, radius: colliderRatio * scale });
@@ -186,105 +302,39 @@ export class Forest {
                 spawned++;
             }
 
-            instancedMeshes.forEach(({ instance }) => {
-                instance.instanceMatrix.needsUpdate = true;
-            });
+            instancedMesh.userData.originalMatrices = origMatrices;
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            this.tileGroup.add(instancedMesh);
         });
-    }
-
-    buildNativeProceduralTrees() {
-        const barkDark = TextureGenerator.createBarkTexture('dark');
-        const folGreen = TextureGenerator.create3DFoliageTexture('#275932');
-        const matDark = new THREE.MeshLambertMaterial({ map: barkDark, flatShading: true });
-        const matFolGreen = new THREE.MeshLambertMaterial({ map: folGreen, flatShading: true });
-
-        for (let i = 0; i < 200; i++) {
-            const tree = new THREE.Group();
-            const trunkHeight = 35 + Math.random() * 25;
-            const trunkRadius = 2.0 + Math.random() * 1.5;
-
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(trunkRadius * 0.7, trunkRadius, trunkHeight, 8), matDark);
-            trunk.position.y = trunkHeight / 2;
-            tree.add(trunk);
-
-            const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(10 + Math.random() * 5, 1), matFolGreen);
-            crown.position.y = trunkHeight + 2.0;
-            tree.add(crown);
-
-            const x = (Math.random() - 0.5) * 700;
-            const z = (Math.random() - 0.5) * 700;
-            if (Math.sqrt(x * x + z * z) < 14) continue;
-
-            const gy = getTerrainHeight(x, z);
-            tree.position.set(x, gy, z);
-            tree.rotation.y = Math.random() * Math.PI;
-
-            this.group.add(tree);
-            this.colliders.push({ x: x, z: z, radius: trunkRadius + 0.6 });
-        }
-    }
-
-    setupNarrativeProps() {
-        const circuitTex = TextureGenerator.createCircuitTexture();
-
-        const headlightsGroup = new THREE.Group();
-        headlightsGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, 0.5), new THREE.MeshBasicMaterial({ color: 0xffffff })));
-        const lightSpread = new THREE.SpotLight(0xfff5cc, 4.0, 20, Math.PI / 3);
-        lightSpread.position.set(0, 0.2, 0);
-        headlightsGroup.add(lightSpread);
-        headlightsGroup.visible = false;
-        this.narrativeProps["HEADLIGHTS"] = headlightsGroup;
-        this.group.add(headlightsGroup);
-
-        const backpackGroup = new THREE.Group();
-        backpackGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.5), new THREE.MeshLambertMaterial({ color: 0x111111 })));
-        const scorch = new THREE.Mesh(new THREE.PlaneGeometry(3, 3), new THREE.MeshBasicMaterial({ color: 0x221111 }));
-        scorch.rotation.x = -Math.PI / 2; scorch.position.y = 0.02;
-        backpackGroup.add(scorch);
-        backpackGroup.visible = false;
-        this.narrativeProps["BACKPACK"] = backpackGroup;
-        this.group.add(backpackGroup);
-
-        const coolant = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 2.5), new THREE.MeshBasicMaterial({ color: 0x00aaff, transparent: true, opacity: 0.85 }));
-        coolant.rotation.x = -Math.PI / 2; coolant.visible = false;
-        this.narrativeProps["COOLANT"] = coolant;
-        this.group.add(coolant);
-
-        const circuit = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.0), new THREE.MeshBasicMaterial({ map: circuitTex }));
-        circuit.rotation.x = -Math.PI / 2; circuit.visible = false;
-        this.narrativeProps["CIRCUITS"] = circuit;
-        this.group.add(circuit);
-
-        const bikeGroup = new THREE.Group();
-        bikeGroup.add(new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.8, 1.8), new THREE.MeshBasicMaterial({ color: 0xff00a0 })));
-        bikeGroup.visible = false;
-        this.narrativeProps["BICYCLE"] = bikeGroup;
-        this.group.add(bikeGroup);
-
-        const rosesGroup = new THREE.Group();
-        const roseMat = new THREE.MeshBasicMaterial({ color: 0xff0033 });
-        for (let r = 0; r < 10; r++) {
-            const rose = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5, 0), roseMat);
-            rose.position.set((Math.random() - 0.5) * 1.5, 0.3, (Math.random() - 0.5) * 1.5);
-            rosesGroup.add(rose);
-        }
-        rosesGroup.visible = false;
-        this.narrativeProps["ROSES"] = rosesGroup;
-        this.group.add(rosesGroup);
-    }
-
-    spawnPropAhead(propKey, playerPos, playerDir) {
-        const prop = this.narrativeProps[propKey];
-        if (!prop) return;
-
-        const spawnX = playerPos.x + playerDir.x * 5.0;
-        const spawnZ = playerPos.z + playerDir.z * 5.0;
-        const spawnY = getTerrainHeight(spawnX, spawnZ);
-
-        prop.position.set(spawnX, spawnY + 0.1, spawnZ);
-        prop.visible = true;
     }
 
     show() { this.group.visible = true; }
     hide() { this.group.visible = false; }
+
+    dispose() {
+        try {
+            const disposeMeshRec = (obj) => {
+                obj.traverse((child) => {
+                    if (child.isMesh) {
+                        try { if (child.geometry) child.geometry.dispose(); } catch (e) {}
+                        try {
+                            const mats = Array.isArray(child.material) ? child.material : [child.material];
+                            mats.forEach(m => {
+                                if (!m) return;
+                                try { if (m.map) m.map.dispose(); } catch (e) {}
+                                try { if (m.dispose) m.dispose(); } catch (e) {}
+                            });
+                        } catch (e) {}
+                    }
+                });
+                if (obj.parent && typeof obj.parent.remove === 'function') obj.parent.remove(obj);
+            };
+
+            if (this.group) disposeMeshRec(this.group);
+            if (this.tileGroup) disposeMeshRec(this.tileGroup);
+            this.tiles.length = 0;
+            this.colliders.length = 0;
+            this.loader = null;
+        } catch (e) { console.warn('Error disposing Forest:', e); }
+    }
 }

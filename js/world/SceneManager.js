@@ -40,7 +40,7 @@ export class SceneManager {
         this.setupResize();
     }
 
-    loadSkybox(imagePath) {
+ loadSkybox(imagePath) {
         if (this.skyDome) this.scene.remove(this.skyDome);
         this.textureLoader.load(imagePath, (texture) => {
             texture.colorSpace = THREE.SRGBColorSpace;
@@ -48,6 +48,10 @@ export class SceneManager {
             const skyMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide, fog: false });
             this.skyDome = new THREE.Mesh(skyGeo, skyMat);
             this.skyDome.rotation.y = Math.PI;
+            
+            // EL CAMBIO ESTÁ ACÁ: Lo ocultamos apenas termina de cargar
+            this.skyDome.visible = false; 
+
             this.scene.add(this.skyDome);
         });
     }
@@ -56,20 +60,25 @@ export class SceneManager {
     getDelta() { return this.clock.getDelta(); }
     triggerShake(i) { this.shakeIntensity = i; }
 
-    switchToSunsetAtmosphere() {
-        this.loadSkybox('./assets/Skyboxes/skybox-alien.png');
-        this.scene.fog = new THREE.Fog(0x8c5245, 20, 150);
-        this.ambientLight.color.setHex(0x6a5855);
-        this.ambientLight.intensity = 1.8;
-        this.moonLight.visible = false;
+switchToSunsetAtmosphere() {
+        const sunsetColor = 0x5c3848;
+        this.scene.background = new THREE.Color(sunsetColor);
+        // Niebla ajustada a 15m - 150m para que se funda perfectamente con el cielo
+        this.scene.fog = new THREE.Fog(sunsetColor, 15, 150);
+
+        this.ambientLight.color.setHex(0x8c5245);
+        this.ambientLight.intensity = 2.2;
         
+        if (this.moonLight) this.moonLight.visible = false;
+
         if (!this.sunLight) {
-            this.sunLight = new THREE.DirectionalLight(0xffb380, 2.5);
+            this.sunLight = new THREE.DirectionalLight(0xffb380, 2.8);
             this.sunLight.position.set(50, 80, -50);
             this.scene.add(this.sunLight);
         }
         this.sunLight.visible = true;
-        this.renderer.toneMappingExposure = 1.2;
+        this.loadSkybox('./assets/Skyboxes/skybox-alien.png', true);
+        this.renderer.toneMappingExposure = 1.1;
     }
 
     switchToCityAtmosphere() {
@@ -104,11 +113,28 @@ export class SceneManager {
     }
 
     setupResize() {
-        window.addEventListener('resize', () => {
+        this._resizeHandler = () => {
             this.camera.aspect = window.innerWidth / window.innerHeight;
             this.camera.updateProjectionMatrix();
             this.renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+        };
+        window.addEventListener('resize', this._resizeHandler);
+    }
+
+    dispose() {
+        try {
+            if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
+            if (this.renderer) {
+                try { this.renderer.dispose(); } catch (e) {}
+                try { if (this.renderer.domElement && this.renderer.domElement.parentNode) this.renderer.domElement.parentNode.removeChild(this.renderer.domElement); } catch (e) {}
+            }
+            // dispose skyDome material/texture
+            if (this.skyDome) {
+                try { if (this.skyDome.material && this.skyDome.material.map) this.skyDome.material.map.dispose(); } catch (e) {}
+                try { if (this.skyDome.geometry) this.skyDome.geometry.dispose(); } catch (e) {}
+                if (this.skyDome.parent) this.skyDome.parent.remove(this.skyDome);
+            }
+        } catch (e) { console.warn('Error disposing SceneManager', e); }
     }
 
     setFogDensity(near, far) {
@@ -165,6 +191,46 @@ enableForestSirens() {
     this.scene.add(this.forestSirenBlue);
 
     this.hasSirensInForest = true;
+}
+setSkyboxVisible(isVisible) {
+    if (this.skyDome) {
+        this.skyDome.visible = isVisible;
+    }
+}
+
+// Agregar dentro de la clase SceneManager:
+
+enablePoliceSirens() {
+    this.isPoliceActive = true;
+    
+    // Reflector de Helicóptero desde las alturas
+    if (!this.spotlightHelicopter) {
+        this.spotlightHelicopter = new THREE.SpotLight(0xffffff, 12.0, 80, Math.PI / 6, 0.3);
+        this.spotlightHelicopter.position.set(0, 35, 0);
+        this.spotlightTarget = new THREE.Object3D();
+        this.scene.add(this.spotlightHelicopter);
+        this.scene.add(this.spotlightTarget);
+        this.spotlightHelicopter.target = this.spotlightTarget;
+    }
+    this.spotlightHelicopter.visible = true;
+}
+
+updatePoliceSirens(time, playerPos) {
+    if (!this.isPoliceActive) return;
+
+    // 1. Alternar color de fondo/niebla/ambiente entre Rojo y Azul (Sirenas)
+    const flash = Math.sin(time * 12.0) > 0;
+    const policeColor = flash ? 0xaa0000 : 0x0011bb;
+    
+    this.scene.background.setHex(policeColor);
+    this.scene.fog.color.setHex(policeColor);
+    this.ambientLight.color.setHex(policeColor);
+
+    // 2. Mover el reflector del helicóptero buscando cerca del jugador
+    if (this.spotlightHelicopter && playerPos) {
+        this.spotlightHelicopter.position.set(playerPos.x + Math.sin(time * 1.5) * 15, playerPos.y + 30, playerPos.z + Math.cos(time * 1.5) * 15);
+        this.spotlightTarget.position.set(playerPos.x + Math.cos(time * 3.0) * 5, playerPos.y, playerPos.z + Math.sin(time * 3.0) * 5);
+    }
 }
 
 }

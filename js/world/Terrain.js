@@ -1,4 +1,6 @@
 export function getTerrainHeight(x, z) {
-    return Math.sin(x * 0.03) * Math.cos(z * 0.03) * 2.5 +
-           Math.sin(x * 0.012 + z * 0.018) * 4.0;
+    // Frecuencia exacta para que los bordes de cada baldosa de 300m encajen a la perfección
+    const k = (Math.PI * 2) / 300;
+    return Math.sin(x * k) * Math.cos(z * k) * 3.5 +
+           Math.sin(x * 2 * k + z * 2 * k) * 2.0;
 }
