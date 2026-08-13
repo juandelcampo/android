@@ -39,25 +39,29 @@ canvas#three-canvas {
     color: #000; 
 }
 
-/* Subtítulos limpios sin bordes brillantes */
+
+
 #subtitle-box {
-    position: absolute;
-    bottom: 40px;
+    position: fixed;
+    bottom: 35px;
     left: 50%;
     transform: translateX(-50%);
-    width: auto;
-    max-width: 80%;
-    text-align: center;
-    color: #fff9d6;
+    color: #ecdd07;
+    padding: 14px 20px;
+    border-radius: 4px;
+    
+    /* Tipografía 8-bit Pixelated */
     font-family: 'VT323', monospace;
-    font-size: 28px;
-    line-height: 1.25;
-    letter-spacing: 1px;
-    background: rgba(0, 0, 0, 0.82);
-    padding: 8px 20px;
-    border-radius: 2px;
-    text-shadow: 2px 2px 2px #000;
+    font-size: 2.7rem;
+    line-height: 1;
+    text-shadow: 3px 3px 0px #000000;
+    max-width: 1000px;
+    width: 85%;
+    text-align: center;
     pointer-events: none;
-    z-index: 5;
-    display: none;
+    z-index: 9000;
+    
+    /* Animación de desvanecimiento suave */
+    opacity: 0;
+    transition: opacity 0.35s ease-in-out;
 }
