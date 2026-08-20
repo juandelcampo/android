@@ -106,6 +106,7 @@ export class Forest {
         this.scatterChessSculptures();
         this.spawnSingleBurnedCar();
         this.spawnSingleStatue();
+        this.spawnGiantSphere(); // <-- NUEVA LÍNEA AÑADIDA
     }
 
     initTileGrid() {
@@ -244,6 +245,56 @@ export class Forest {
         });
     }
 
+spawnGiantSphere() {
+        this.loader.load('./assets/models/free_stone_sphere.glb', (gltf) => {
+            this.giantSphere = gltf.scene; 
+            this.normalizeScale(this.giantSphere, 5.0);
+
+            this.giantSphere.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+
+            this.giantSphere.visible = false; 
+            this.group.add(this.giantSphere);
+        });
+    }
+
+    clearTreesAround(x, z, clearRadius) {
+        const matrix = new THREE.Matrix4();
+        const position = new THREE.Vector3();
+
+        // Recorremos todos los grupos de árboles/rocas instanciados
+        this.tileGroup.children.forEach((child) => {
+            if (child.isInstancedMesh) {
+                let updated = false;
+                for (let i = 0; i < child.count; i++) {
+                    child.getMatrixAt(i, matrix);
+                    position.setFromMatrixPosition(matrix);
+                    
+                    // Calculamos la distancia entre el árbol y la nueva Esfera
+                    const dx = position.x - x;
+                    const dz = position.z - z;
+                    const dist = Math.sqrt(dx * dx + dz * dz);
+                    
+                    if (dist < clearRadius) {
+                        // Si está muy cerca, lo hundimos 100 metros para ocultarlo
+                        position.y -= 100; 
+                        matrix.setPosition(position);
+                        child.setMatrixAt(i, matrix);
+                        updated = true;
+                    }
+                }
+                // Si movimos algún árbol, le avisamos a Three.js que actualice los gráficos
+                if (updated) {
+                    child.instanceMatrix.needsUpdate = true;
+                }
+            }
+        });
+    }
+
     update(delta, playerPos) {
         if (this.tiles.length === 0 || !playerPos) return;
 
@@ -268,21 +319,26 @@ export class Forest {
         }
     }
 
-    spawnInstancedMeshes(itemList, totalCount, scaleMin, scaleMax, skipRadius, colliderRatio, sinkOffset = 0.0) {
+spawnInstancedMeshes(itemList, totalCount, scaleMin, scaleMax, skipRadius, colliderRatio, sinkOffset = 0.0) {
         const countPerMesh = Math.floor(totalCount / itemList.length);
         const dummy = new THREE.Object3D();
 
         itemList.forEach((item) => {
             const instancedMesh = new THREE.InstancedMesh(item.geometry, item.material, countPerMesh);
             let spawned = 0;
-
             const origMatrices = [];
 
             while (spawned < countPerMesh) {
                 const x = (Math.random() - 0.5) * (this.tileSize - 6);
                 const z = (Math.random() - 0.5) * (this.tileSize - 6);
 
+                // Radio libre del centro original
                 if (skipRadius > 0 && Math.sqrt(x * x + z * z) < skipRadius) continue;
+
+                // ---> NUEVO: Claro en el bosque para la Esfera Gigante
+                const distToSphere = Math.sqrt(Math.pow(x - 80.0, 2) + Math.pow(z - (-80.0), 2));
+                if (distToSphere < 25.0) continue; // 25 metros a la redonda sin árboles
+                // <--- FIN NUEVO
 
                 const gy = getTerrainHeight(x, z);
                 const scale = scaleMin + Math.random() * (scaleMax - scaleMin);

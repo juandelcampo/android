@@ -105,19 +105,76 @@ if (!spanishQuoteContainer) {
     startOverlay.appendChild(spanishQuoteContainer);
 }
 
-startBtn.disabled = true;
-startBtn.innerText = "LOADING... 0%";
+// 1. Crear el contenedor del Loader
+const loaderContainer = document.createElement('div');
+loaderContainer.style.cssText = `
+    width: 250px;
+    margin-bottom: 30px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+`;
 
+// 2. Crear el texto del Spinner/Porcentaje
+const loadingText = document.createElement('div');
+loadingText.style.cssText = `
+    font-family: 'VT323', monospace;
+    color: #ffffff;
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+    margin-bottom: 12px;
+`;
+loadingText.innerText = "CARGANDO MEMORIA... 0%";
+loaderContainer.appendChild(loadingText);
+
+// 3. Crear el fondo de la barra de progreso
+const progressBar = document.createElement('div');
+progressBar.style.cssText = `
+    width: 100%;
+    height: 4px;
+    background-color: #222222;
+    border-radius: 2px;
+    overflow: hidden;
+`;
+
+// 4. Crear el "relleno" (la barra que avanza)
+const progressFill = document.createElement('div');
+progressFill.style.cssText = `
+    width: 0%;
+    height: 100%;
+    background-color: #ffffff;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    transition: width 0.15s ease-out;
+`;
+progressBar.appendChild(progressFill);
+loaderContainer.appendChild(progressBar);
+
+// Insertamos el loader antes del botón y ocultamos el botón temporalmente
+startOverlay.insertBefore(loaderContainer, startBtn);
+startBtn.style.display = 'none';
+startBtn.disabled = true;
+
+// 5. Lógica del Loading Manager
 const loadingManager = new THREE.LoadingManager();
 
 loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
     const progress = Math.round((itemsLoaded / itemsTotal) * 100);
-    startBtn.innerText = `LOADING... ${progress}%`;
+    
+    // Animación de texto estilo terminal
+    const dots = ['.', '..', '...'][Math.floor(Date.now() / 300) % 3];
+    loadingText.innerText = `CARGANDO MEMORIA${dots} ${progress}%`;
+    
+    // Llenar la barra
+    progressFill.style.width = `${progress}%`;
 };
 
 loadingManager.onLoad = () => {
+    // Cuando termina, ocultamos la barra y mostramos el botón
+    loaderContainer.style.display = 'none';
+    
+    startBtn.style.display = 'block';
     startBtn.disabled = false;
-    startBtn.innerText = "START";
+    startBtn.innerText = "INICIAR";
 };
 
 // ---------------------------------------------------------------------
@@ -208,7 +265,7 @@ function playAndroidStepSound() {
         source.playbackRate.value = 0.85 + Math.random() * 0.2; 
 
         const gainNode = stepCtx.createGain();
-        gainNode.gain.value = 0.1; 
+        gainNode.gain.value = 0.2; 
 
         source.connect(gainNode);
         gainNode.connect(stepCtx.destination);
@@ -377,6 +434,43 @@ const gltfLoader = new GLTFLoader(loadingManager);
 
 let corpseMesh = null;
 let roseSkullMesh = null;
+let flyingSphere = null;
+
+let dnaHologram = null;
+
+
+let dnaDisappearing = false; // Controla cuándo empieza a desvanecerse
+
+// Cargar el Holograma de ADN
+loadGLTFWithHandlers('./assets/models/dna_hologram.gltf', (gltf) => {
+    dnaHologram = gltf.scene;
+    dnaHologram.visible = false; 
+
+    // Escala inicial pequeña para que "crezca" al aparecer
+    dnaHologram.scale.set(0.1, 0.1, 0.1); 
+
+    sceneManager.scene.add(dnaHologram);
+}, null, (err) => { console.warn('Error cargando dna_hologram:', err); });
+
+let flyingSphere2 = null;
+
+// Cargar la segunda Esfera (Buga Sphere)
+loadGLTFWithHandlers('./assets/models/buga_sphere.gltf', (gltf) => {
+    flyingSphere2 = gltf.scene;
+    flyingSphere2.visible = false; 
+
+    // Ajusta la escala si es necesario
+    flyingSphere2.scale.set(4.0, 4.0, 4.0);
+
+    flyingSphere2.traverse((child) => {
+        if (child.isMesh) {
+            child.castShadow = true;
+
+        }
+    });
+
+    sceneManager.scene.add(flyingSphere2);
+}, null, (err) => { console.warn('Error cargando buga_sphere:', err); });
 
 const bloodGroup = new THREE.Group();
 bloodGroup.visible = false;
@@ -657,7 +751,7 @@ window.addEventListener('unload', cleanup);
 const hallwayGroup = new THREE.Group();
 sceneManager.scene.add(hallwayGroup);
 
-loadGLTFWithHandlers('./assets/models/hallway_with_baked_lighting.glb', (gltf) => {
+loadGLTFWithHandlers('./assets/models/new_hallway.gltf', (gltf) => {
     const hallway = gltf.scene;
 
     hallway.traverse((child) => {
@@ -692,7 +786,7 @@ loadGLTFWithHandlers('./assets/models/hallway_with_baked_lighting.glb', (gltf) =
     windowLight.position.set(-5, 2, 0);
     windowLight.castShadow = true;
     hallwayGroup.add(windowLight);
-}, null, (err) => { console.warn('hallway model failed to load:', err); });
+}, null, (err) => { console.warn('new_hallway model failed to load:', err); });
 
 loadGLTFWithHandlers('./assets/models/corpse.glb', (gltf) => {
     corpseMesh = gltf.scene;
@@ -759,7 +853,7 @@ sceneManager.scene.add(phoneLight);
 
 sceneManager.camera.add(phone3D.group);
 sceneManager.scene.add(sceneManager.camera);
-phone3D.group.position.set(0, -0.8, -1.8);
+phone3D.group.position.set(0, -0.15, -0.35);
 phone3D.group.visible = true;
 
 const playerSpotlight = new THREE.SpotLight(0xffffff, 0.0, 150, Math.PI / 4, 0.4, 0);
@@ -807,6 +901,7 @@ sceneManager.scene.add(policeSirenLight);
 let spotlightActive = false;
 let policeActive = false;
 
+
 forest.hide();
 sceneManager.scene.add(forest.group);
 
@@ -814,7 +909,8 @@ let isPlaying = false;
 let isTransitioned = false;
 
 const requestPointerLock = () => {
-    if (isPlaying && isTransitioned && playerControls) {
+    // ELIMINAMOS 'isTransitioned' DE LA CONDICIÓN PARA PERMITIR MOVER LA CÁMARA DESDE EL INICIO
+    if (isPlaying && playerControls) {
         if (typeof playerControls.lockCursor === 'function') {
             playerControls.lockCursor();
         } else if (playerControls.controls && typeof playerControls.controls.lock === 'function') {
@@ -840,6 +936,11 @@ startBtn.addEventListener('click', async () => {
     startOverlay.style.opacity = '0';
     setTimeout(() => { startOverlay.style.display = 'none'; }, 800);
 
+    // NUEVO: HABILITAMOS EL MOVIMIENTO DESDE EL INICIO
+    if (playerControls && typeof playerControls.enableWalking === 'function') {
+        playerControls.enableWalking();
+    }
+
     try {
         await audio.init();
         await loadStepSound();
@@ -853,6 +954,11 @@ function loop() {
 
     const delta = sceneManager.getDelta();
     const currentTime = audio.getCurrentTime();
+
+    // NUEVO: Ejecutar los controles SIEMPRE, sin importar si estamos en el pasillo o en el bosque
+    if (playerControls && typeof playerControls.update === 'function') {
+        playerControls.update(delta, isTransitioned);
+    }
 
     if (!isTransitioned) {
         const audioData = audio.getWaveformData();
@@ -871,6 +977,8 @@ function loop() {
             postProcessing.customPass.uniforms['uFlashIntensity'].value = Math.max(0, postProcessing.customPass.uniforms['uFlashIntensity'].value - delta * 1.2);
         }
         
+        // ... AQUÍ SIGUE EL RESTO DEL CÓDIGO ORIGINAL DEL ELSE ...
+        
         const targetDarkTime = 379.04;
         const nightProgress = Math.min(1.0, Math.max(0.0, (currentTime - forestStartTime) / (targetDarkTime - forestStartTime)));
 
@@ -888,6 +996,59 @@ function loop() {
             forestAmbientLight.intensity = THREE.MathUtils.lerp(forestAmbientLight.intensity, 0.01, delta * 2.5);
         } else {
             currentFogColor.copy(neutralFogColor).lerp(nightFogColor, nightProgress);
+
+ 
+
+
+
+// --- ANIMACIÓN DE LA ESFERA (VIDA PROPIA) ---
+        if (flyingSphere2 && flyingSphere2.visible) {
+            // Un multiplicador de tiempo para que no vaya ni muy rápido ni muy lento
+            const t = currentTime * 0.6;
+            
+            // Generamos un camino errático usando múltiples ondas superpuestas
+            // Vaga en un radio de unos 50 metros alrededor de la zona, pero sin seguir un círculo
+            const wanderX = Math.sin(t * 0.4) * 35.0 + Math.sin(t * 0.75) * 15.0;
+            const wanderZ = Math.cos(t * 0.3) * 35.0 + Math.sin(t * 0.85) * 15.0;
+            
+            // Posición objetivo en el mundo (sigue rondando tu área para no perderse para siempre)
+            const targetX = playerPos.x + wanderX;
+            const targetZ = playerPos.z + wanderZ;
+            
+            // Magia: la esfera lee la altura del piso en SU posición, no en la tuya
+            const sphereGroundY = getTerrainHeight(targetX, targetZ);
+            
+            // Flotación independiente (a veces baja a 2 metros del suelo, a veces sube a 8)
+            const floatY = 5.0 + Math.sin(t * 1.2) * 3.0; 
+
+            // Aplicamos la posición final
+            flyingSphere2.position.set(targetX, sphereGroundY + floatY, targetZ);
+
+            // Rotación "curiosa": a veces gira rápido, a veces lento
+            flyingSphere2.rotation.x += delta * (0.5 + Math.sin(t) * 0.5);
+            flyingSphere2.rotation.y += delta * 1.5;
+            flyingSphere2.rotation.z += delta * (0.3 + Math.cos(t * 0.6));
+        }
+
+        }
+
+        // --- ANIMACIÓN DEL HOLOGRAMA DE ADN ---
+        if (dnaHologram && dnaHologram.visible) {
+            // Rotación constante y flotación suave
+            dnaHologram.rotation.y += delta * 1.5;
+            dnaHologram.position.y += Math.sin(currentTime * 3.0) * 0.002;
+
+            if (dnaDisappearing) {
+                // Se encoge rápidamente hasta desaparecer
+                dnaHologram.scale.multiplyScalar(0.90);
+                if (dnaHologram.scale.x < 0.01) {
+                    dnaHologram.visible = false;
+                    dnaDisappearing = false;
+                }
+            } else {
+                // Crece fluidamente hasta su tamaño real (escala 3.0)
+                dnaHologram.scale.lerp(new THREE.Vector3(8.0, 8.0, 8.0), 1);
+            }
         }
 
         sceneManager.scene.background.lerp(currentFogColor, delta * 2.0);
@@ -1045,6 +1206,10 @@ async function handleTrigger(event) {
                 if (phone3D && phone3D.group) sceneManager.camera.remove(phone3D.group);
                 if (phoneLight) sceneManager.scene.remove(phoneLight);
 
+                if (flyingSphere) flyingSphere.visible = true;
+
+                if (flyingSphere2) flyingSphere2.visible = true;
+
                 if (typeof sceneManager.switchToSunsetAtmosphere === 'function') {
                     sceneManager.switchToSunsetAtmosphere(); 
                 }
@@ -1118,6 +1283,35 @@ async function handleTrigger(event) {
                 postProcessing.triggerFlash(0xfffaee, 0.5);
             }
             break;
+
+case "GIANT_SPHERE":
+            if (forest && forest.giantSphere) {
+                // 1. Calculamos hacia dónde está mirando el jugador
+                const forward = new THREE.Vector3();
+                sceneManager.camera.getWorldDirection(forward);
+                forward.y = 0; 
+                forward.normalize();
+                
+                // 2. Posicionamos la piedra a 50 metros en frente
+                const distance = 50.0;
+                const spawnX = sceneManager.camera.position.x + forward.x * distance;
+                const spawnZ = sceneManager.camera.position.z + forward.z * distance;
+                const gy = getTerrainHeight(spawnX, spawnZ);
+                
+                // 3. Altura perfecta: Radio de la esfera (17.5) menos 2.5m de hundimiento
+                const perfectY = gy + 15.0; 
+                forest.giantSphere.position.set(spawnX, perfectY, spawnZ);
+                forest.giantSphere.visible = true;
+
+                // 4. ELIMINAR LOS ÁRBOLES QUE QUEDARON ADENTRO (Radio de 20 metros)
+                forest.clearTreesAround(spawnX, spawnZ, 20.0);
+                
+
+        
+            }
+            break;
+
+ 
 
 case "TOURNAMENT_RECOUNT":
             if (typeof sceneManager.setTournamentLighting === 'function') sceneManager.setTournamentLighting();
@@ -1208,6 +1402,25 @@ case "TOURNAMENT_RECOUNT":
             }
             break;
 
+        case "SHOW_DNA_HOLOGRAM":
+            if (dnaHologram) {
+                dnaHologram.visible = true;
+                dnaDisappearing = false;
+                
+                // Obtener hacia dónde mira la cámara
+                const forward = new THREE.Vector3();
+                sceneManager.camera.getWorldDirection(forward);
+                
+                // Colocarlo 3 metros frente al jugador, a la altura de los ojos
+                dnaHologram.position.copy(sceneManager.camera.position).add(forward.multiplyScalar(3.0));
+                
+                // A los 5 segundos, activar la desaparición
+                setTimeout(() => {
+                    dnaDisappearing = true;
+                }, 15000); 
+            }
+            break;
+
         case "CIRCUIT_BOARDS":
             if (postProcessing && typeof postProcessing.triggerFlash === 'function') {
                 postProcessing.triggerFlash(0x00ff88, 0.35);
@@ -1295,6 +1508,10 @@ case "TOURNAMENT_RECOUNT":
                 bloodGroup.visible = false;
                 proceduralBloodMesh.visible = false;
 
+                if (flyingSphere) flyingSphere.visible = false;
+
+                if (flyingSphere2) flyingSphere2.visible = false;
+
                 if (playerControls) {
                     if (playerControls.controls && typeof playerControls.controls.unlock === 'function') {
                         playerControls.controls.unlock();
@@ -1304,7 +1521,7 @@ case "TOURNAMENT_RECOUNT":
                     }
                 }
                 
-                sceneManager.camera.position.set(0, 0.45, 0);
+                sceneManager.camera.position.set(0, 2.85, 0);
                 sceneManager.camera.rotation.set(0, 0, 0);
                 sceneManager.camera.fov = defaultFOV;
                 sceneManager.camera.updateProjectionMatrix();
@@ -1325,9 +1542,11 @@ case "TOURNAMENT_RECOUNT":
                 
                 if (phone3D && phone3D.group) {
                     sceneManager.camera.add(phone3D.group);
-                    phone3D.group.position.set(0, -0.65, -1.4);
+                    // NUEVA POSICIÓN: Más cerca de la cámara
+                    phone3D.group.position.set(0, -0.15, -0.35); 
                     phone3D.group.rotation.set(0, 0, 0);
                     phone3D.group.visible = true;
+                
                 }
                 sceneManager.scene.add(phoneLight);
 

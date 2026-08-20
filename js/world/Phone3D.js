@@ -20,13 +20,14 @@ export class Phone3D {
         this.loadModel();
     }
 
-    loadModel() {
+loadModel() {
         this.loader.load(
             './assets/models/props/phone.glb',
             (gltf) => {
                 this.phoneMesh = gltf.scene;
 
-                this.phoneMesh.scale.set(1.6, 1.6, 1.6);
+                // Reducimos la escala a la mitad para que no atraviese paredes
+                this.phoneMesh.scale.set(0.3, 0.3, 0.3);
                 this.phoneMesh.position.set(0, 0, 0);
 
                 const screenMaterial = new THREE.MeshBasicMaterial({
