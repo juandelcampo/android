@@ -154,27 +154,60 @@ startOverlay.insertBefore(loaderContainer, startBtn);
 startBtn.style.display = 'none';
 startBtn.disabled = true;
 
+// --- LÓGICA DE CARGA FALSA ---
+let currentProgress = 0;
+
+// Subimos la barra "de mentira" hasta un máximo de 45%
+const fakeLoadInterval = setInterval(() => {
+    if (currentProgress < 45) { 
+        currentProgress += Math.random() * 1.5; 
+        
+        // Actualizamos los elementos que ya creaste
+        const displayProgress = Math.round(currentProgress);
+        const dots = ['.', '..', '...'][Math.floor(Date.now() / 300) % 3];
+        loadingText.innerText = `CARGANDO MEMORIA${dots} ${displayProgress}%`;
+        progressFill.style.width = `${currentProgress}%`;
+    }
+}, 150);
+
+
 // 5. Lógica del Loading Manager
 const loadingManager = new THREE.LoadingManager();
 
 loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
-    const progress = Math.round((itemsLoaded / itemsTotal) * 100);
+    const realProgress = (itemsLoaded / itemsTotal) * 100;
     
-    // Animación de texto estilo terminal
+    // Si la carga real de Three.js supera a la falsa, toma el control
+    if (realProgress > currentProgress) {
+        currentProgress = realProgress;
+    }
+    
+    // Animación de texto estilo terminal con el progreso ganador
+    const displayProgress = Math.round(currentProgress);
     const dots = ['.', '..', '...'][Math.floor(Date.now() / 300) % 3];
-    loadingText.innerText = `CARGANDO MEMORIA${dots} ${progress}%`;
+    loadingText.innerText = `CARGANDO MEMORIA${dots} ${displayProgress}%`;
     
     // Llenar la barra
-    progressFill.style.width = `${progress}%`;
+    progressFill.style.width = `${currentProgress}%`;
 };
 
 loadingManager.onLoad = () => {
-    // Cuando termina, ocultamos la barra y mostramos el botón
-    loaderContainer.style.display = 'none';
+    // Frenamos el intervalo de la carga falsa
+    clearInterval(fakeLoadInterval);
     
-    startBtn.style.display = 'block';
-    startBtn.disabled = false;
-    startBtn.innerText = "INICIAR";
+    // Forzamos visualmente el 100% por una fracción de segundo (opcional pero queda bien)
+    progressFill.style.width = `100%`;
+    loadingText.innerText = `CARGANDO MEMORIA... 100%`;
+
+    // Cuando termina, ocultamos la barra y mostramos el botón
+    // Le damos un pequeñísimo delay para que se llegue a ver el 100%
+    setTimeout(() => {
+        loaderContainer.style.display = 'none';
+        
+        startBtn.style.display = 'block';
+        startBtn.disabled = false;
+        startBtn.innerText = "INICIAR";
+    }, 200);
 };
 
 // ---------------------------------------------------------------------
